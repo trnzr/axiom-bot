@@ -23,4 +23,5 @@ jobs:
       - name: Run Tracker
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+          NTFY_URL: ${{ secrets.NTFY_URL }}
         run: python tracker.py
