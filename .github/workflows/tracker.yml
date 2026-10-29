@@ -1,9 +1,11 @@
 name: Smart Wallet Tracker
-
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '0 */8 * * *'
 
 jobs:
   run-tracker:
