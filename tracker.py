@@ -68,6 +68,7 @@ def analyser_transaction(tx):
 
 def main():
     wallets = charger_wallets()
+    envoyer_alerte("TEST : Le bot est en ligne !")
     print(f"Radar Hybride activé sur {len(wallets)} wallets.", flush=True)
     deja_vu = set()
 
