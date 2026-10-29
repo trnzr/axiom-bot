@@ -4,10 +4,10 @@ import os
 from datetime import datetime
 
 # ==========================================
-# CONFIGURATION DU RADAR HYBRIDE (NTFY)
+# CONFIGURATION DU RADAR (VERSION TELEGRAM)
 # ==========================================
-# Remplace par l'URL exacte de ton topic Ntfy
-NTFY_URL = "https://ntfy.sh/bot-radar-mmco-alert6548" 
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
 
 def charger_wallets():
@@ -19,12 +19,24 @@ def charger_wallets():
         return []
 
 def envoyer_alerte(message):
-    """Envoie le message sur ton téléphone via Ntfy"""
+    """Envoie le message sur ton téléphone via Telegram"""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Erreur: Token ou Chat ID Telegram manquant dans les secrets.", flush=True)
+        return
+        
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True
+    }
+    
     try:
-        requests.post(NTFY_URL, data=message.encode(encoding='utf-8'), timeout=10)
-        print(f"[+] Alerte envoyée à Ntfy.", flush=True)
+        requests.post(url, json=payload, timeout=10)
+        print(f"[+] Alerte Telegram envoyée avec succès.", flush=True)
     except Exception as e:
-        print(f"Erreur Ntfy : {e}", flush=True)
+        print(f"Erreur Telegram : {e}", flush=True)
 
 def verifier_token_dexscreener(token_address):
     """Vérifie si le token a assez de liquidité et de volume"""
@@ -38,7 +50,7 @@ def verifier_token_dexscreener(token_address):
                 liquidity = float(pair.get('liquidity', {}).get('usd', 0))
                 volume_5m = float(pair.get('volume', {}).get('m5', 0))
                 
-                # FILTRES DE SÉCURITÉ
+                # FILTRES DE SÉCURITÉ (Liquidité > 10k$, Volume 5m > 5k$)
                 if liquidity > 10000 and volume_5m > 5000:
                     return True, liquidity, volume_5m
     except Exception as e:
@@ -46,30 +58,36 @@ def verifier_token_dexscreener(token_address):
     return False, 0, 0
 
 def scanner_wallet(wallet):
-    """Récupère les dernières transactions d'un wallet"""
+    """Récupère les dernières transactions d'un wallet via Helius"""
     url = f"https://api.helius.xyz/v0/addresses/{wallet}/transactions?api-key={HELIUS_API_KEY}&limit=3"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 429:
+             print("⚠️ Rate Limit Helius atteint !", flush=True)
     except Exception:
         pass
     return []
 
 def analyser_transaction(tx):
-    """Détecte si c'est un achat de token"""
+    """Détecte si c'est un achat de token (Swap)"""
     if tx.get('type') == 'SWAP':
         for transfer in tx.get('tokenTransfers', []):
             mint = transfer.get('mint')
-            # Ignore SOL et USDC
+            # Ignore SOL et USDC pour ne garder que les memecoins
             if mint not in ["So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"]:
                 return mint
     return None
 
 def main():
     wallets = charger_wallets()
-    envoyer_alerte("TEST : Le bot est en ligne !")
-    print(f"Radar Hybride activé sur {len(wallets)} wallets.", flush=True)
+    print(f"=== Radar Telegram activé sur {len(wallets)} wallets ===", flush=True)
+    
+    # --- LIGNE DE TEST (À supprimer plus tard) ---
+    envoyer_alerte("🚀 TEST : Le bot Telegram est en ligne sur GitHub !")
+    # --------------------------------------------
+    
     deja_vu = set()
 
     while True:
@@ -82,26 +100,27 @@ def main():
                     token_mint = analyser_transaction(tx)
                     
                     if token_mint:
-                        print(f"[{datetime.now().strftime('%H:%M:%S')}] Achat détecté par {wallet[:6]} sur {token_mint}. Vérification...", flush=True)
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] Achat détecté par {wallet[:6]}... sur {token_mint}. Vérification...", flush=True)
                         
-                        # VÉRIFICATION DU MARCHÉ
+                        # VÉRIFICATION DU MARCHÉ SUR DEXSCREENER
                         est_valide, liq, vol = verifier_token_dexscreener(token_mint)
                         
                         if est_valide:
-                            msg = f"🚨 SMART MONEY CONVERGENCE 🚨\n"
-                            msg += f"👤 Wallet : {wallet[:6]}... a acheté !\n"
-                            msg += f"🪙 CA : {token_mint}\n"
+                            msg = f"🚨 *SMART MONEY CONVERGENCE* 🚨\n"
+                            msg += f"👤 Wallet : `{wallet[:6]}...` a acheté !\n"
+                            msg += f"🪙 CA : `{token_mint}`\n"
                             msg += f"💧 Liquidité : ${liq:,.0f}\n"
                             msg += f"📊 Volume 5m : ${vol:,.0f}\n"
-                            msg += f"🔗 https://axiom.trade/token/{token_mint}"
+                            msg += f"🔗 [Acheter sur Axiom](https://axiom.trade/token/{token_mint})"
                             
-                            print(f"[+] PÉPITE VALIDÉE ! Alerte envoyée.", flush=True)
+                            print(f"[+] PÉPITE VALIDÉE ! Envoi de l'alerte Telegram...", flush=True)
                             envoyer_alerte(msg)
                         else:
                             print(f"[-] Token ignoré (liquidité/volume insuffisants).", flush=True)
                             
-            time.sleep(1) # Pause anti-ban API Helius
+            time.sleep(1) # Pause anti-ban API Helius entre chaque wallet
             
+        print(f"[*] Cycle terminé. Pause de 15 secondes...", flush=True)
         time.sleep(15) # Pause avant de rescanner tous les wallets
 
 if __name__ == "__main__":
