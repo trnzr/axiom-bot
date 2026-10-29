@@ -1,11 +1,13 @@
 name: Smart Wallet Tracker
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */8 * * *'
+    - cron: '0 */6 * * *'
+
+concurrency:
+  group: smart-wallet-tracker
+  cancel-in-progress: true
 
 jobs:
   run-tracker:
@@ -25,5 +27,6 @@ jobs:
       - name: Run Tracker
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
-          NTFY_URL: ${{ secrets.NTFY_URL }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python tracker.py
