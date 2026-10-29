@@ -7,7 +7,7 @@ from datetime import datetime
 # CONFIGURATION DU RADAR HYBRIDE (NTFY)
 # ==========================================
 # Remplace par l'URL exacte de ton topic Ntfy
-NTFY_URL = "https://ntfy.sh/radar-bot-mm-alerts8273" 
+NTFY_URL = "https://ntfy.sh/bot-radar-mmco-alert6548" 
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
 
 def charger_wallets():
